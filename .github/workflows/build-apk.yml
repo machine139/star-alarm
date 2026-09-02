@@ -1,0 +1,74 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # 支援手動點擊按鈕觸發打包
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js 環境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: 設定 Java 17 (JDK)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 設定 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 初始化 Capacitor 與設定原生鬧鐘權限
+        run: |
+          mkdir -p www
+          cp index.html www/
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/local-notifications
+          npx cap init "星空鬧鐘" com.staralarm.app --web-dir www
+          
+          # 將 App 指向 GitHub Pages 達成連網自動更新（請確保換成您的 Pages 網址）
+          # 若無網路時會自動讀取本地 www/index.html 備援
+          cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.staralarm.app",
+            "appName": "星空鬧鐘",
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+
+          # 建立 Android 原生專案
+          npx cap add android
+
+          # 寫入 Android 原生精確鬧鐘與全螢幕通知必備權限
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.WAKE_LOCK" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.VIBRATE" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' $MANIFEST
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />' $MANIFEST
+
+      - name: 編譯 Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: 上傳打包好的 APK 檔案
+        uses: actions/upload-artifact@v4
+        with:
+          name: StarAlarm-Android-Debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
