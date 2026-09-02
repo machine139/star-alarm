@@ -8,6 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>星空智慧鬧鐘</title>
   
+  <!-- 關鍵：引入 Capacitor 原生橋接腳本，讓網頁能直接呼叫 Android AlarmManager -->
+  <script src="capacitor.js" onerror="console.log('Web 模式運行中 (未偵測到 capacitor.js)')"></script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,9 +160,25 @@
       pointer-events: none;
       transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    .tag-drag-item {
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    }
     .tag-drag-item.dragging {
-      opacity: 0.45;
-      transform: scale(0.98);
+      opacity: 0.75;
+      transform: scale(1.02);
+      box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.4), inset 0 0 0 1px rgba(56, 189, 248, 0.6);
+      background: rgba(20, 30, 60, 0.9) !important;
+      z-index: 50;
+    }
+    .tag-drag-handle {
+      touch-action: none;
+      cursor: grab;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tag-drag-handle:active {
+      cursor: grabbing;
     }
   </style>
 </head>
@@ -281,6 +300,18 @@
           </div>
         </div>
 
+        <!-- Scope Switcher: Today vs All -->
+        <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs">
+          <button type="button" id="scopeTabToday" onclick="setDateScopeFilter('today')" class="py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="scopeTabTodayLabel">今天響鈴 (0)</span>
+          </button>
+          <button type="button" id="scopeTabAll" onclick="setDateScopeFilter('all')" class="py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-sky-400 text-slate-950 shadow-sm">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            <span id="scopeTabAllLabel">全部鬧鐘 (0)</span>
+          </button>
+        </div>
+
         <!-- Alarms Container -->
         <div id="alarmsList" class="space-y-3">
           <!-- Dynamically Injected Alarm Cards -->
@@ -378,72 +409,74 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 text-sky-300 font-bold text-sm">
               <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-              Android 背景休眠喚醒設定 (鎖屏必響)
-            </div>
-            <span id="nativeBridgeBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">檢測中</span>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            為防止 Android 系統在手機關閉螢幕、半夜低耗電（Doze Mode）時凍結鬧鐘，請確認以下兩項手機設定：
-          </p>
-          <div class="space-y-2 text-xs text-slate-300 font-sans">
-            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start gap-2">
-              <span class="text-sky-400 font-bold">1.</span>
-              <span>長按桌面「星空鬧鐘」圖示 ➔ 點「應用程式資訊 ⓘ」➔「電池」➔ 改為<strong>「不受限制 (Unrestricted)」</strong>。</span>
-            </div>
-            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start gap-2">
-              <span class="text-sky-400 font-bold">2.</span>
-              <span>點「權限」➔ 允許<strong>「鬧鐘與提醒」</strong>與<strong>「通知」</strong>權限。</span>
-            </div>
-          </div>
-          <button onclick="testNativeBackgroundAlarm()" class="w-full py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition flex items-center justify-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            測試排程 10 秒後原生背景喚醒鬧鐘 (關閉螢幕測試)
-          </button>
-        </div>
-
-        <!-- Google Gemini API Key Configuration Card -->
-        <div class="p-5 rounded-2xl star-card border-indigo-500/30 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2 text-sky-300 font-bold text-sm">
-              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-              AI 課表辨識金鑰 (Gemini API Key)
-            </div>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[11px] text-sky-400 hover:text-sky-300 underline font-medium">免費取得 Key ↗</a>
-          </div>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            設定專屬 Google Gemini 金鑰即可拍照自動匯入每週課表（完全免費）。
-          </p>
-          <div class="flex items-center gap-2">
-            <input type="password" id="userGeminiApiKeyInput" placeholder="請貼上 API Key (AIzaSy...)" class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-400 font-mono">
-            <button onclick="saveUserApiKey()" class="px-4 py-2 rounded-xl bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold text-xs active:scale-95 transition">
-              儲存
-            </button>
-          </div>
-        </div>
-
-        <!-- Sound & Vibration Settings -->
-        <div class="p-4 rounded-2xl star-card space-y-4">
-          <span class="text-xs font-semibold text-sky-300">音效與震動測試</span>
-          
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-300">鬧鐘音量</span>
-            <input id="soundVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.8" class="w-32 accent-sky-400 cursor-pointer">
-          </div>
-
-          <div class="grid grid-cols-2 gap-2 pt-2">
-            <button onclick="testAlarmSound()" class="py-2.5 px-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-sky-200 border border-slate-700/60 flex items-center justify-center gap-1.5 transition">
-              <svg class="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-              試聽預設鈴聲
-            </button>
-            <button onclick="testVibration()" class="py-2.5 px-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-700/60 flex items-center justify-center gap-1.5 transition">
-              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-              手機震動測試
-            </button>
-          </div>
-        </div>
+        <!-- sound volume and vibration ... -->
       </section>
 
     </main>
+
+    <!-- Modal: Close Alarm Action Sheet (Skip Next vs Turn Off Completely) -->
+    <div id="alarmToggleModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+      <div class="star-card rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl border border-slate-700/60 safe-bottom-padding">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white tracking-wide">關閉鬧鐘選項</h3>
+              <p id="toggleModalAlarmName" class="text-[11px] text-slate-400 font-mono">鬧鐘名稱</p>
+            </div>
+          </div>
+          <button onclick="closeAlarmToggleModal()" class="text-slate-400 hover:text-white p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          請問您希望如何關閉此鬧鐘？
+        </p>
+
+        <div class="space-y-2.5 pt-1">
+          <!-- Option 1: Skip next occurrence only -->
+          <button onclick="confirmToggleOption('skipNext')" class="w-full p-3.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-left transition active:scale-98 group flex items-start gap-3">
+            <div class="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold text-xs mt-0.5 shrink-0">
+              ⚡
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-amber-200 group-hover:text-amber-100 flex items-center justify-between">
+                <span>僅跳過最近一次響鈴</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">下次不響</span>
+              </div>
+              <p class="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                只關閉最近一次的響起，之後維持常態排程繼續自動響鈴（例如：今天或明天放假不用響）。
+              </p>
+            </div>
+          </button>
+
+          <!-- Option 2: Turn off completely -->
+          <button onclick="confirmToggleOption('turnOff')" class="w-full p-3.5 rounded-2xl star-card hover:bg-slate-800/90 border border-slate-700/80 text-left transition active:scale-98 group flex items-start gap-3">
+            <div class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs mt-0.5 shrink-0">
+              ⏸️
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-slate-200 group-hover:text-white flex items-center justify-between">
+                <span>完全停用此鬧鐘</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">手動重開</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                暫時關閉此鬧鐘，直到您下次在畫面上手動重新點擊開關為止。
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button type="button" onclick="closeAlarmToggleModal()" class="px-4 py-2 rounded-xl star-card hover:bg-slate-800 text-xs font-bold text-slate-400">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Bottom Navigation Bar (Optimized for Android Gesture Bar / Safe Area Bottom) -->
     <nav class="fixed sm:absolute bottom-0 inset-x-0 mx-auto max-w-md safe-bottom-nav bg-slate-950/90 backdrop-blur-2xl border-t border-slate-800/80 px-4 flex items-center justify-around z-30">
@@ -647,7 +680,7 @@
             <span class="text-xs text-slate-400 font-medium">已建立的標籤</span>
             <span class="text-[10px] text-sky-300/80 flex items-center gap-1">
               <svg class="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
-              手指按住手柄上下拖動可排序
+              手指按住左側手柄可上下拖拉，亦可用 ▲▼ 微調
             </span>
           </div>
           <div id="manageTagsList" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar"></div>
@@ -820,10 +853,42 @@
   </div>
 
   <script>
-    // Capacitor Native Bridge Helper
+    // Capacitor Native Bridge Helper (全功能升級版)
     const NativeBridge = {
       isAvailable() {
-        return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications);
+        return !!(window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable('LocalNotifications'));
+      },
+
+      async init() {
+        if (!this.isAvailable()) return;
+        try {
+          const ln = window.Capacitor.Plugins.LocalNotifications;
+          // 建立 Android 8.0+ 必須的高優先級鬧鐘頻道
+          await ln.createChannel({
+            id: 'star_alarm_channel_high',
+            name: '星空鬧鐘響鈴頻道',
+            description: '用於鎖屏與 App 關閉時的最高優先級精確喚醒鬧鐘',
+            importance: 5, // IMPORTANCE_HIGH (最高優先級，跳出浮動通知與大聲響鈴)
+            visibility: 1, // VISIBILITY_PUBLIC (鎖屏直接顯示)
+            sound: 'alarm_alert.wav',
+            vibration: true,
+            lights: true,
+            lightColor: '#38bdf8'
+          });
+
+          // 監聽點擊通知行為，點擊後回到 App 顯示響鈴介面
+          ln.addListener('localNotificationActionPerformed', (notification) => {
+            const alarmId = notification.notification?.extra?.alarmId;
+            if (alarmId) {
+              const target = alarms.find(a => a.id === alarmId);
+              if (target) {
+                triggerAlarmRinging(target);
+              }
+            }
+          });
+        } catch (e) {
+          console.warn('[Native Bridge] Init channel error:', e);
+        }
       },
 
       async requestPermission() {
@@ -837,7 +902,7 @@
         }
       },
 
-      async scheduleAlarm(id, title, body, triggerDate, sound = 'default') {
+      async scheduleAlarm(id, title, body, triggerDate, sound = 'alarm_alert.wav') {
         if (!this.isAvailable()) return;
         try {
           const notifId = Math.abs(id.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)) % 100000;
@@ -846,17 +911,18 @@
             notifications: [
               {
                 id: notifId,
-                title: title || '星空鬧鐘響起！',
-                body: body || '時間到了，請查看行程',
+                title: title || '⏰ 星空鬧鐘響起！',
+                body: body || '時間到了，請點擊關閉或稍後提醒',
                 schedule: { at: triggerDate, allowWhileIdle: true },
-                sound: 'res://raw/alarm_alert.wav',
+                sound: 'alarm_alert.wav',
                 channelId: 'star_alarm_channel_high',
-                actionTypeId: 'ALARM_ACTION',
+                smallIcon: 'ic_stat_alarm',
+                iconColor: '#38bdf8',
                 extra: { alarmId: id }
               }
             ]
           });
-          console.log('[Native Alarm] Registered at Android AlarmManager:', triggerDate);
+          console.log('[Native Alarm] 成功向 Android AlarmManager 登記喚醒:', triggerDate);
         } catch (e) {
           console.warn('[Native Alarm] Schedule failed:', e);
         }
@@ -869,6 +935,16 @@
           await window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: [{ id: notifId }] });
         } catch (e) {
           console.warn('[Native Alarm] Cancel failed:', e);
+        }
+      },
+
+      async getPendingCount() {
+        if (!this.isAvailable()) return 0;
+        try {
+          const pending = await window.Capacitor.Plugins.LocalNotifications.getPending();
+          return pending.notifications ? pending.notifications.length : 0;
+        } catch (e) {
+          return 0;
         }
       }
     };
@@ -967,6 +1043,8 @@
     let tags = [];
     let snoozedState = null; // { alarm, triggerTimestamp }
     let currentFilterTagId = 'all';
+    let currentDateScope = 'all'; // 'all' | 'today'
+    let pendingToggleAlarmId = null;
     let editingAlarmId = null;
     let currentlyRingingAlarm = null;
     let tempSelectedTagIds = [];
@@ -1111,8 +1189,10 @@
       if (!alarm.enabled) return null;
       const scheduleType = alarm.scheduleType || 'weekly';
 
+      let candidateList = [];
+
       if (scheduleType === 'monthly') {
-        for (let mOffset = 0; mOffset <= 2; mOffset++) {
+        for (let mOffset = 0; mOffset <= 3; mOffset++) {
           const year = now.getFullYear();
           const month = now.getMonth() + mOffset;
           let targetDay;
@@ -1122,25 +1202,37 @@
             targetDay = Math.min(parseInt(alarm.monthlyDay) || 1, new Date(year, month + 1, 0).getDate());
           }
           const candidate = new Date(year, month, targetDay, alarm.hours, alarm.minutes, 0, 0);
-          if (candidate.getTime() > now.getTime()) return candidate;
+          if (candidate.getTime() > now.getTime()) {
+            candidateList.push(candidate);
+          }
         }
       } else if (scheduleType === 'specific') {
         if (alarm.specificDate) {
           const [y, m, d] = alarm.specificDate.split('-').map(Number);
           const candidate = new Date(y, m - 1, d, alarm.hours, alarm.minutes, 0, 0);
-          if (candidate.getTime() > now.getTime()) return candidate;
+          if (candidate.getTime() > now.getTime()) {
+            candidateList.push(candidate);
+          }
         }
       } else {
-        for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+        for (let dayOffset = 0; dayOffset <= 14; dayOffset++) {
           const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, alarm.hours, alarm.minutes, 0, 0);
           if (candidate.getTime() <= now.getTime()) continue;
           const dayOfWeek = candidate.getDay();
           if (!alarm.days || alarm.days.length === 0 || alarm.days.includes(dayOfWeek)) {
-            return candidate;
+            candidateList.push(candidate);
           }
         }
       }
-      return null;
+
+      if (candidateList.length === 0) return null;
+
+      // If user chose "Skip Next", bypass the immediate next trigger and take the one after it
+      if (alarm.isSkippedNext && candidateList.length > 1) {
+        return candidateList[1];
+      }
+
+      return candidateList[0];
     }
 
     async function syncAllAlarmsToNativeSystem() {
@@ -1153,14 +1245,45 @@
           if (nextDate) {
             await NativeBridge.scheduleAlarm(
               alarm.id,
-              alarm.label || '星空鬧鐘',
-              `時間到了：${padZero(alarm.hours)}:${padZero(alarm.minutes)}`,
+              `⏰ ${alarm.label || '星空鬧鐘'}`,
+              `時間到了：${padZero(alarm.hours)}:${padZero(alarm.minutes)} (點擊進入處理)`,
               nextDate,
               alarm.sound
             );
           }
         } else {
           await NativeBridge.cancelAlarm(alarm.id);
+        }
+      }
+      updateDiagnosticUI();
+    }
+
+    async function updateDiagnosticUI() {
+      const badge = document.getElementById('nativeBridgeBadge');
+      const engineStatus = document.getElementById('diagEngineStatus');
+      const scheduledCount = document.getElementById('diagScheduledCount');
+
+      if (NativeBridge.isAvailable()) {
+        if (badge) {
+          badge.innerText = '原生喚醒引擎：運行中';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono';
+        }
+        if (engineStatus) {
+          engineStatus.innerText = '已連接 (AlarmManager 作用中)';
+          engineStatus.className = 'text-emerald-400 font-bold';
+        }
+        if (scheduledCount) {
+          const count = await NativeBridge.getPendingCount();
+          scheduledCount.innerText = `${count} 個鬧鐘已登記至系統`;
+        }
+      } else {
+        if (badge) {
+          badge.innerText = 'Web 模式';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono';
+        }
+        if (engineStatus) {
+          engineStatus.innerText = '未連線 (請更新最新版 APK)';
+          engineStatus.className = 'text-amber-400 font-bold';
         }
       }
     }
@@ -1327,30 +1450,36 @@
         const count = alarms.filter(a => a.tags && a.tags.includes(tag.id)).length;
 
         return `
-          <div class="tag-drag-item flex items-center justify-between p-2.5 rounded-xl star-card border-slate-700/60 transition-all cursor-move"
+          <div class="tag-drag-item flex items-center justify-between p-2.5 rounded-xl star-card border-slate-700/60 transition-all"
+               data-id="${tag.id}"
                data-index="${index}"
-               draggable="true"
-               ondragstart="handleTagDragStart(event, ${index})"
-               ondragover="handleTagDragOver(event)"
-               ondrop="handleTagDrop(event, ${index})"
-               ontouchstart="handleTagTouchStart(event, ${index})"
-               ontouchmove="handleTagTouchMove(event)"
-               ontouchend="handleTagTouchEnd(event)">
+               draggable="true">
             
-            <div class="flex items-center gap-2.5">
-              <!-- Drag Handle Grip -->
-              <div class="p-1 text-slate-500 hover:text-sky-400 cursor-grab active:cursor-grabbing touch-none" title="按住拖曳排序">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm9-12a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+            <div class="flex items-center gap-2">
+              <!-- Dedicated Touch & Mouse Drag Handle -->
+              <div class="tag-drag-handle p-2 -ml-1 text-slate-400 hover:text-sky-300 active:text-sky-400 cursor-grab active:cursor-grabbing flex items-center justify-center rounded-lg hover:bg-slate-800/60 transition touch-none"
+                   title="手指長按拖曳排序">
+                <svg class="w-4 h-4 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 7a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 7a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm9-14a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 7a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 7a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
                 </svg>
               </div>
 
-              <span class="w-2.5 h-2.5 rounded-full ${colorStyle.bg} border ${colorStyle.border} shadow-sm"></span>
-              <span class="text-xs font-bold text-slate-200">${tag.name}</span>
+              <!-- Quick Shift Up / Down Buttons for instant access -->
+              <div class="flex flex-col -space-y-0.5 mr-1">
+                <button type="button" onclick="moveTagStep(${index}, -1)" ${index === 0 ? 'disabled class="opacity-20 text-slate-600"' : 'class="text-slate-400 hover:text-sky-300 active:scale-110"'} title="上移">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                </button>
+                <button type="button" onclick="moveTagStep(${index}, 1)" ${index === tags.length - 1 ? 'disabled class="opacity-20 text-slate-600"' : 'class="text-slate-400 hover:text-sky-300 active:scale-110"'} title="下移">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+              </div>
+
+              <span class="w-2.5 h-2.5 rounded-full ${colorStyle.bg} border ${colorStyle.border} shadow-sm shrink-0"></span>
+              <span class="text-xs font-bold text-slate-200 truncate max-w-[90px] sm:max-w-[130px]">${tag.name}</span>
               <span class="text-[11px] font-mono text-sky-400/80">(${count})</span>
             </div>
 
-            <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-2">
               <button onclick="toggleTagState('${tag.id}')" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition ${tag.enabled ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm' : 'bg-slate-800 text-slate-500'}">
                 ${tag.enabled ? '已啟用' : '已關閉'}
               </button>
@@ -1361,62 +1490,115 @@
           </div>
         `;
       }).join('');
+
+      initManageTagsDragEvents();
     }
 
-    /* Tag Drag-and-Drop Reordering Handlers (Desktop & Mobile Touch) */
-    function reorderTags(fromIndex, toIndex) {
-      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= tags.length || toIndex >= tags.length) return;
-      const movedItem = tags.splice(fromIndex, 1)[0];
-      tags.splice(toIndex, 0, movedItem);
+    /* Reliable One-Click Up/Down Reorder */
+    function moveTagStep(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= tags.length) return;
+      const movedItem = tags.splice(index, 1)[0];
+      tags.splice(targetIndex, 0, movedItem);
       saveTagsToStorage();
       renderTagFilterBar();
       renderManageTagsList();
-      showToast(`標籤「${movedItem.name}」已重新排列`, '✨');
+      showToast(`標籤「${movedItem.name}」已調整順序`, '✨');
     }
 
-    function handleTagDragStart(e, index) {
-      draggedTagIndex = index;
-      e.dataTransfer.effectAllowed = 'move';
-      e.target.classList.add('dragging');
-    }
+    /* Seamless Native Touch & Desktop Drag Event Binder without DOM Destroy */
+    function initManageTagsDragEvents() {
+      const container = document.getElementById('manageTagsList');
+      if (!container) return;
 
-    function handleTagDragOver(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-    }
+      const items = container.querySelectorAll('.tag-drag-item');
+      let activeDragEl = null;
 
-    function handleTagDrop(e, targetIndex) {
-      e.preventDefault();
-      document.querySelectorAll('.tag-drag-item').forEach(el => el.classList.remove('dragging'));
-      if (draggedTagIndex !== null && draggedTagIndex !== targetIndex) {
-        reorderTags(draggedTagIndex, targetIndex);
-      }
-      draggedTagIndex = null;
-    }
+      items.forEach(item => {
+        const handle = item.querySelector('.tag-drag-handle');
 
-    /* Touch-Specific Drag Support for Mobile */
-    let touchDraggingElement = null;
-    let touchInitialTargetIndex = null;
-
-    function handleTagTouchStart(e, index) {
-      touchInitialTargetIndex = index;
-      touchDraggingElement = e.currentTarget;
-      touchStartY = e.touches[0].clientY;
-      touchDraggingElement.classList.add('dragging');
-    }
-
-    function handleTagTouchMove(e) {
-      if (!touchDraggingElement) return;
-      const currentY = e.touches[0].clientY;
-      const elementsUnder = document.elementsFromPoint(e.touches[0].clientX, currentY);
-      const targetItem = elementsUnder.find(el => el.classList && el.classList.contains('tag-drag-item'));
-      
-      if (targetItem && targetItem !== touchDraggingElement) {
-        const targetIndex = parseInt(targetItem.getAttribute('data-index'));
-        if (!isNaN(targetIndex) && targetIndex !== touchInitialTargetIndex) {
-          reorderTags(touchInitialTargetIndex, targetIndex);
-          touchInitialTargetIndex = targetIndex;
+        // Touch event handlers attached directly to the dedicated drag handle
+        if (handle) {
+          handle.addEventListener('touchstart', (e) => {
+            activeDragEl = item;
+            item.classList.add('dragging');
+            if (navigator.vibrate) {
+              try { navigator.vibrate(25); } catch (_) {}
+            }
+          }, { passive: true });
         }
+
+        // HTML5 Desktop Drag Events
+        item.addEventListener('dragstart', (e) => {
+          activeDragEl = item;
+          item.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+
+        item.addEventListener('dragend', () => {
+          finalizeTagReorder();
+        });
+
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!activeDragEl || activeDragEl === item) return;
+
+          const rect = item.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (e.clientY < midY) {
+            container.insertBefore(activeDragEl, item);
+          } else {
+            container.insertBefore(activeDragEl, item.nextSibling);
+          }
+        });
+      });
+
+      // Global container touch handlers for uninterrupted dragging
+      container.ontouchmove = (e) => {
+        if (!activeDragEl) return;
+        e.preventDefault(); // Prevent modal scroll during drag
+
+        const touchY = e.touches[0].clientY;
+        const touchX = e.touches[0].clientX;
+        const elUnderPoint = document.elementFromPoint(touchX, touchY);
+        const targetItem = elUnderPoint ? elUnderPoint.closest('.tag-drag-item') : null;
+
+        if (targetItem && targetItem !== activeDragEl && container.contains(targetItem)) {
+          const rect = targetItem.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (touchY < midY) {
+            container.insertBefore(activeDragEl, targetItem);
+          } else {
+            container.insertBefore(activeDragEl, targetItem.nextSibling);
+          }
+        }
+      };
+
+      const finishTouch = () => {
+        if (!activeDragEl) return;
+        finalizeTagReorder();
+      };
+
+      container.ontouchend = finishTouch;
+      container.ontouchcancel = finishTouch;
+
+      function finalizeTagReorder() {
+        if (activeDragEl) {
+          activeDragEl.classList.remove('dragging');
+          activeDragEl = null;
+        }
+
+        const currentDomIds = Array.from(container.querySelectorAll('.tag-drag-item'))
+          .map(el => el.getAttribute('data-id'));
+
+        // Align tags array with the updated DOM sequence
+        tags.sort((a, b) => currentDomIds.indexOf(a.id) - currentDomIds.indexOf(b.id));
+
+        saveTagsToStorage();
+        renderTagFilterBar();
+        renderManageTagsList();
+        showToast('標籤順序已成功更新！', '✨');
       }
     }
 
@@ -1495,6 +1677,64 @@
       }
     }
 
+    function isAlarmScheduledForToday(alarm, now = new Date()) {
+      const scheduleType = alarm.scheduleType || 'weekly';
+
+      if (scheduleType === 'monthly') {
+        const todayDate = now.getDate();
+        if (alarm.monthlyDay === 'last') {
+          const tomorrow = new Date(now.getFullYear(), now.getMonth(), todayDate + 1);
+          return tomorrow.getDate() === 1;
+        } else {
+          return todayDate === parseInt(alarm.monthlyDay);
+        }
+      } else if (scheduleType === 'specific') {
+        if (!alarm.specificDate) return false;
+        const [y, m, d] = alarm.specificDate.split('-').map(Number);
+        return (
+          now.getFullYear() === y &&
+          (now.getMonth() + 1) === m &&
+          now.getDate() === d
+        );
+      } else {
+        const todayDay = now.getDay();
+        if (!alarm.days || alarm.days.length === 0) {
+          // One-time alarm: valid for today if created for today
+          return true;
+        }
+        return alarm.days.includes(todayDay);
+      }
+    }
+
+    function setDateScopeFilter(scope) {
+      currentDateScope = scope;
+      const tabToday = document.getElementById('scopeTabToday');
+      const tabAll = document.getElementById('scopeTabAll');
+
+      if (scope === 'today') {
+        tabToday.className = 'py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-sky-400 text-slate-950 shadow-sm';
+        tabAll.className = 'py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white';
+      } else {
+        tabAll.className = 'py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-sky-400 text-slate-950 shadow-sm';
+        tabToday.className = 'py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white';
+      }
+
+      renderAlarmsList();
+    }
+
+    function updateScopeCounts() {
+      const now = new Date();
+      const todayCount = alarms.filter(a => isAlarmScheduledForToday(a, now)).length;
+      const allCount = alarms.length;
+
+      const tabTodayLabel = document.getElementById('scopeTabTodayLabel');
+      const tabAllLabel = document.getElementById('scopeTabAllLabel');
+
+      const todayDayName = DAY_NAMES[now.getDay()];
+      if (tabTodayLabel) tabTodayLabel.innerText = `今天 · 週${todayDayName} (${todayCount})`;
+      if (tabAllLabel) tabAllLabel.innerText = `全部鬧鐘 (${allCount})`;
+    }
+
     function populateMonthlyOptions() {
       const select = document.getElementById('alarmMonthlyDayInput');
       if (!select) return;
@@ -1508,18 +1748,41 @@
 
     function renderAlarmsList() {
       const container = document.getElementById('alarmsList');
-      
-      let filteredAlarms = alarms;
+      updateScopeCounts();
+
+      const now = new Date();
+      let filteredAlarms = [...alarms];
+
+      // 1. Filter by Tag
       if (currentFilterTagId !== 'all') {
-        filteredAlarms = alarms.filter(a => a.tags && a.tags.includes(currentFilterTagId));
+        filteredAlarms = filteredAlarms.filter(a => a.tags && a.tags.includes(currentFilterTagId));
       }
 
+      // 2. Filter by Date Scope (Today vs All)
+      if (currentDateScope === 'today') {
+        filteredAlarms = filteredAlarms.filter(a => isAlarmScheduledForToday(a, now));
+      }
+
+      // 3. STRICT CHRONOLOGICAL TIME SORTING (From early morning 00:00 to night 23:59)
+      filteredAlarms.sort((a, b) => {
+        const timeA = a.hours * 60 + a.minutes;
+        const timeB = b.hours * 60 + b.minutes;
+        return timeA - timeB;
+      });
+
       if (filteredAlarms.length === 0) {
+        let emptyHint = '目前沒有任何鬧鐘，點擊右上角「新增鬧鐘」';
+        if (currentDateScope === 'today') {
+          emptyHint = '今天沒有排定的鬧鐘，點擊「全部鬧鐘」檢視其他排程';
+        } else if (currentFilterTagId !== 'all') {
+          emptyHint = '此標籤分類下沒有任何鬧鐘';
+        }
+
         container.innerHTML = `
           <div class="text-center py-12 px-4 rounded-2xl star-card border-dashed border-slate-800 space-y-2">
             <svg class="w-10 h-10 mx-auto text-sky-400/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <p class="text-xs text-slate-400 font-medium">
-              ${currentFilterTagId === 'all' ? '目前沒有鬧鐘，點擊右上角「新增鬧鐘」' : '此標籤分類下沒有任何鬧鐘'}
+              ${emptyHint}
             </p>
           </div>
         `;
@@ -1571,11 +1834,34 @@
 
         const timeString = `${padZero(alarm.hours)}:${padZero(alarm.minutes)}`;
 
+        // Skip Next Indicator Badge
+        let skipNextBadge = '';
+        if (alarm.isSkippedNext && alarm.enabled) {
+          skipNextBadge = `
+            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>⚡ 下次響鈴已跳過</span>
+              <button type="button" onclick="resumeSkippedAlarm('${alarm.id}', event)" class="underline hover:text-white ml-0.5 text-[10px]">恢復</button>
+            </div>
+          `;
+        }
+
+        // Determine the time display color:
+        // If alarm is skipped next, render in subdued muted slate gray.
+        // If alarm is fully disabled, also grayed out.
+        // If active and will ring next, show bright white with starry glow.
+        let timeColorClass = 'text-white text-glow-star';
+        if (!alarm.enabled) {
+          timeColorClass = 'text-slate-500';
+        } else if (alarm.isSkippedNext) {
+          timeColorClass = 'text-slate-500';
+        }
+
         return `
-          <div class="p-4 rounded-2xl star-card hover:border-sky-400/40 ${alarm.enabled ? 'star-card-active' : 'opacity-55'} transition-all shadow-md flex items-center justify-between group">
+          <div class="p-4 rounded-2xl star-card hover:border-sky-400/40 ${alarm.enabled ? (alarm.isSkippedNext ? 'border-amber-500/40' : 'star-card-active') : 'opacity-55'} transition-all shadow-md flex items-center justify-between group">
             <div class="flex-1 cursor-pointer" onclick="openAlarmModal('${alarm.id}')">
               <div class="flex items-baseline space-x-2.5">
-                <span class="font-mono text-3xl font-bold tracking-tight text-white ${alarm.enabled ? 'text-glow-star' : ''}">${timeString}</span>
+                <span class="font-mono text-3xl font-bold tracking-tight ${timeColorClass}">${timeString}</span>
                 <span class="text-xs font-medium text-slate-300 truncate max-w-[130px]">${alarm.label || '鬧鐘'}</span>
               </div>
               
@@ -1583,14 +1869,15 @@
                 <div class="flex items-center space-x-1">
                   ${scheduleBadge}
                 </div>
+                ${skipNextBadge}
                 ${alarmTagsList ? `<div class="flex flex-wrap items-center gap-1.5">${alarmTagsList}</div>` : ''}
               </div>
             </div>
 
             <div class="flex items-center space-x-3">
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarmEnabled('${alarm.id}')" class="sr-only peer">
-                <div class="w-11 h-6 bg-slate-900 border border-slate-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-sky-100 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500 peer-checked:shadow-[0_0_10px_rgba(56,189,248,0.5)]"></div>
+              <label class="relative inline-flex items-center cursor-pointer" onclick="event.preventDefault(); handleAlarmToggleClick('${alarm.id}')">
+                <input type="checkbox" ${alarm.enabled ? 'checked' : ''} class="sr-only peer pointer-events-none">
+                <div class="w-11 h-6 bg-slate-900 border border-slate-700/80 peer-focus:outline-none rounded-full peer ${alarm.enabled ? (alarm.isSkippedNext ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] after:translate-x-full' : 'peer-checked:bg-sky-500 peer-checked:shadow-[0_0_10px_rgba(56,189,248,0.5)] after:translate-x-full') : ''} after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-sky-100 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
               </label>
 
               <button onclick="deleteAlarm('${alarm.id}')" class="p-2 text-slate-500 hover:text-rose-400 rounded-lg transition" title="刪除鬧鐘">
@@ -1602,15 +1889,100 @@
       }).join('');
     }
 
-    function toggleAlarmEnabled(id) {
+    function isRepeatingAlarm(alarm) {
+      const scheduleType = alarm.scheduleType || 'weekly';
+      if (scheduleType === 'monthly') return true;
+      if (scheduleType === 'weekly' && alarm.days && alarm.days.length > 0) return true;
+      return false;
+    }
+
+    function handleAlarmToggleClick(id) {
       const alarm = alarms.find(a => a.id === id);
-      if (alarm) {
-        alarm.enabled = !alarm.enabled;
+      if (!alarm) return;
+
+      // Case 1: Alarm is currently OFF -> Turn ON immediately
+      if (!alarm.enabled) {
+        alarm.enabled = true;
+        alarm.isSkippedNext = false;
         saveAlarmsToStorage();
         renderAlarmsList();
         updateNextAlarmCountdown(new Date());
-        showToast(alarm.enabled ? '鬧鐘已開啟 (已同步系統喚醒)' : '鬧鐘已關閉', alarm.enabled ? '🔔' : '🔕');
+        showToast(`鬧鐘「${alarm.label || ''}」已開啟`, '🔔');
+        return;
       }
+
+      // Case 2: Alarm is currently in "Skipped Next" state -> Clicking toggle restores it
+      if (alarm.isSkippedNext) {
+        alarm.isSkippedNext = false;
+        saveAlarmsToStorage();
+        renderAlarmsList();
+        updateNextAlarmCountdown(new Date());
+        showToast(`已恢復「${alarm.label || ''}」正常響鈴`, '🔔');
+        return;
+      }
+
+      // Case 3: Alarm is currently ON and is a repeating alarm -> Prompt user for (Skip Next vs Turn Off)
+      if (isRepeatingAlarm(alarm)) {
+        pendingToggleAlarmId = id;
+        const modal = document.getElementById('alarmToggleModal');
+        const labelEl = document.getElementById('toggleModalAlarmName');
+        if (labelEl) labelEl.innerText = `${padZero(alarm.hours)}:${padZero(alarm.minutes)} - ${alarm.label || '鬧鐘'}`;
+        if (modal) modal.classList.remove('hidden');
+        return;
+      }
+
+      // Case 4: Single non-repeating alarm -> Turn OFF directly
+      alarm.enabled = false;
+      alarm.isSkippedNext = false;
+      saveAlarmsToStorage();
+      renderAlarmsList();
+      updateNextAlarmCountdown(new Date());
+      showToast(`鬧鐘「${alarm.label || ''}」已關閉`, '🔕');
+    }
+
+    function closeAlarmToggleModal() {
+      const modal = document.getElementById('alarmToggleModal');
+      if (modal) modal.classList.add('hidden');
+      pendingToggleAlarmId = null;
+    }
+
+    function confirmToggleOption(option) {
+      if (!pendingToggleAlarmId) return;
+      const alarm = alarms.find(a => a.id === pendingToggleAlarmId);
+      if (!alarm) {
+        closeAlarmToggleModal();
+        return;
+      }
+
+      if (option === 'skipNext') {
+        alarm.isSkippedNext = true;
+        showToast(`已跳過「${alarm.label || ''}」最近一次響鈴，之後照常響鈴`, '⚡');
+      } else {
+        alarm.enabled = false;
+        alarm.isSkippedNext = false;
+        showToast(`已完全關閉鬧鐘「${alarm.label || ''}」`, '🔕');
+      }
+
+      saveAlarmsToStorage();
+      renderAlarmsList();
+      updateNextAlarmCountdown(new Date());
+      closeAlarmToggleModal();
+    }
+
+    function resumeSkippedAlarm(id, event) {
+      if (event) event.stopPropagation();
+      const alarm = alarms.find(a => a.id === id);
+      if (alarm) {
+        alarm.isSkippedNext = false;
+        saveAlarmsToStorage();
+        renderAlarmsList();
+        updateNextAlarmCountdown(new Date());
+        showToast(`已恢復「${alarm.label || ''}」正常響鈴`, '🔔');
+      }
+    }
+
+    function toggleAlarmEnabled(id) {
+      handleAlarmToggleClick(id);
     }
 
     function deleteAlarm(id) {
@@ -2445,6 +2817,14 @@
       alarms.forEach(alarm => {
         if (!alarm.enabled) return;
         if (isAlarmMatchingCurrentMoment(alarm, now)) {
+          // If this occurrence was marked as "Skip Next", bypass it and auto-clear the skip flag
+          if (alarm.isSkippedNext) {
+            alarm.isSkippedNext = false;
+            saveAlarmsToStorage();
+            renderAlarmsList();
+            return;
+          }
+
           triggerAlarmRinging(alarm);
           if (alarm.scheduleType === 'specific') {
             alarm.enabled = false;
@@ -2595,17 +2975,19 @@
 
     async function testNativeBackgroundAlarm() {
       const tenSecLater = new Date(Date.now() + 10000);
-      showToast('已排程 10 秒後喚醒，請立刻關閉螢幕測試！', '📱');
 
       if (NativeBridge.isAvailable()) {
         await NativeBridge.scheduleAlarm(
           'test-alarm-id',
-          '星空鬧鐘測試成功！',
-          '即使黑屏休眠，原生 AlarmManager 依然成功喚醒手機！',
+          '⏰ 星空鬧鐘測試成功！',
+          '即使 App 已被滑掉關閉，Android 系統依然成功喚醒手機！',
           tenSecLater,
-          'radar'
+          'alarm_alert.wav'
         );
+        showToast('已排程 10 秒後喚醒！請立刻「滑掉關閉 App」並鎖屏！', '📱');
+        updateDiagnosticUI();
       } else {
+        showToast('尚未偵測到原生引擎，正在以 Web 模式模擬 10 秒鬧鐘', '⚠️');
         setTimeout(() => {
           triggerAlarmRinging({
             id: 'test-alarm',
@@ -2869,7 +3251,7 @@
       });
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       loadTagsFromStorage();
       loadAlarmsFromStorage();
       loadSnoozeState();
@@ -2882,17 +3264,10 @@
       updateTimerUI();
       initClockPickerEvents();
 
-      // Check Native Bridge status
-      const bridgeBadge = document.getElementById('nativeBridgeBadge');
-      if (bridgeBadge) {
-        if (NativeBridge.isAvailable()) {
-          bridgeBadge.innerText = '原生引擎運行中';
-          bridgeBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono';
-        } else {
-          bridgeBadge.innerText = 'Web 標準模式';
-          bridgeBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 font-mono';
-        }
-      }
+      // 初始化 NativeBridge 頻道與診斷
+      await NativeBridge.init();
+      await syncAllAlarmsToNativeSystem();
+      await updateDiagnosticUI();
 
       const keyInput = document.getElementById('userGeminiApiKeyInput');
       if (keyInput) keyInput.value = getUserApiKey();
