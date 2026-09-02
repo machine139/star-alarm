@@ -403,10 +403,33 @@
 
       <!-- TAB 4: SETTINGS & ANDROID BACKGROUND WAKE GUIDE -->
       <section id="viewSettings" class="tab-view hidden space-y-5">
-        <h2 class="text-sm font-bold text-sky-300 tracking-wide flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-          設定與原生診斷
-        </h2>
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-sky-300 tracking-wide flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+            設定與原生診斷
+          </h2>
+          <button onclick="openHowToUseModal()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500/20 to-indigo-500/20 hover:from-sky-500/30 hover:to-indigo-500/30 text-sky-300 border border-sky-400/40 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm">
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            如何使用
+          </button>
+        </div>
+
+        <!-- How To Use Quick Entry Banner Card -->
+        <div onclick="openHowToUseModal()" class="p-4 rounded-2xl star-card border-indigo-500/40 bg-gradient-to-r from-indigo-950/60 to-sky-950/40 hover:border-sky-400/60 transition cursor-pointer flex items-center justify-between group">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 text-slate-950 font-bold flex items-center justify-center shrink-0 shadow-md shadow-sky-500/30">
+              💡
+            </div>
+            <div>
+              <h3 class="text-xs font-bold text-white group-hover:text-sky-300 transition flex items-center gap-1.5">
+                完整功能使用導覽
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">新手必看</span>
+              </h3>
+              <p class="text-[10px] text-slate-400 mt-0.5">點擊查看 24H 轉盤、標籤拖曳、AI 識圖與排程技巧</p>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-slate-400 group-hover:text-sky-300 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
 
         <!-- Android Native Alarm Status Card -->
         <div class="p-5 rounded-3xl star-card border-sky-500/40 space-y-4 bg-gradient-to-br from-indigo-950/50 via-sky-950/30 to-slate-900/90 shadow-xl">
@@ -949,6 +972,120 @@
           <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl star-card hover:bg-slate-800 text-xs font-semibold text-slate-400">稍後設定</button>
           <button onclick="saveModalApiKey()" class="px-5 py-2 rounded-xl bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold text-xs shadow-md shadow-sky-500/25">儲存並開始辨識</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal: How To Use / Feature Guide -->
+    <div id="howToUseModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+      <div class="star-card rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] flex flex-col shadow-2xl border border-sky-500/40 safe-bottom-padding">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center text-slate-950 font-black text-sm shadow-md shadow-sky-500/30">
+              ✦
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white tracking-wide">星空鬧鐘 · 功能使用指南</h3>
+              <p class="text-[10px] text-slate-400 font-mono">深入瞭解每個貼心設計與操作細節</p>
+            </div>
+          </div>
+          <button onclick="closeHowToUseModal()" class="text-slate-400 hover:text-white p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto no-scrollbar space-y-3.5 pr-0.5">
+
+          <!-- Feature 1: Clock Picker & Scheduling -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-sky-300">
+              <span class="w-5 h-5 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-[11px]">1</span>
+              <span>24小時雙環轉盤與三種排程模式</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              • <strong class="text-white">雙環時鐘轉盤</strong>：外圈為 1～12 點，內圈為 13～00 點。手指滑動或點選即可選時，選好小時後自動流暢切換至 60 分鐘盤。<br>
+              • <strong class="text-white">每週重複</strong>：自選星期日到六（未選則為單次響起）。<br>
+              • <strong class="text-white">每月固定日</strong>：支援每個月 1～31 號或「每月最後一天(月底)」自動響起。<br>
+              • <strong class="text-white">指定年月日</strong>：特定紀念日或單次事件專用，響鈴後自動關閉。
+            </p>
+          </div>
+
+          <!-- Feature 2: Time Sorting & Today/All Scope -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-sky-300">
+              <span class="w-5 h-5 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-[11px]">2</span>
+              <span>時間先後排序與「今天 / 全部」檢視</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              • <strong class="text-white">嚴格時間軸排序</strong>：鬧鐘無論何時建立，主清單一律自動由早到晚（00:00 $\rightarrow$ 23:59）順序呈現。<br>
+              • <strong class="text-white">今天響鈴</strong>：一鍵過濾出今日符合排程會響起的鬧鐘清單，清楚掌握當天行程。<br>
+              • <strong class="text-white">全部鬧鐘</strong>：檢視所有常態排程或單次鬧鐘。
+            </p>
+          </div>
+
+          <!-- Feature 3: Tag Management & Drag Reordering -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-sky-300">
+              <span class="w-5 h-5 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-[11px]">3</span>
+              <span>標籤分類、手勢拖曳排序與連鎖邏輯</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              • <strong class="text-white">手指拖曳排序</strong>：在「標籤管理」中，按住左側六點手柄即可上下拖曳換位，亦可用 ▲▼ 按鈕快速微調順序。<br>
+              • <strong class="text-white">多標籤複選</strong>：單一鬧鐘可指派多個標籤（如「工作」與「留守」）。<br>
+              • <strong class="text-white">連鎖開啟原則</strong>：只要鬧鐘所屬的「任一」標籤處於開啟狀態，該鬧鐘即會保持響鈴；只有當它所屬的所有標籤全被關閉時才會停用。<br>
+              • <strong class="text-white">未分類過濾</strong>：標籤列中特設「未分類」，便於快速管理無標籤項目。
+            </p>
+          </div>
+
+          <!-- Feature 4: Skip Next Alarm vs Turn Off -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-amber-300">
+              <span class="w-5 h-5 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-[11px]">4</span>
+              <span>兩種關閉方式（跳過下次 vs 完全停用）</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              當點擊開啟中的重複鬧鐘開關時，可自由選擇：<br>
+              • <strong class="text-amber-200">⚡ 僅跳過最近一次</strong>：鬧鐘時間數字會以<span class="text-slate-400 font-bold">灰色</span>顯示，標記「下次響鈴已跳過」。只停用最近這一次（例如今天放假），下週依然照常自動響鈴！隨時可點「恢復」。<br>
+              • <strong class="text-slate-200">⏸️ 完全停用</strong>：關閉開關，直到日後手動重新開啟。
+            </p>
+          </div>
+
+          <!-- Feature 5: AI Schedule Recognition -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-violet-300">
+              <span class="w-5 h-5 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center text-[11px]">5</span>
+              <span>AI 課表/班表智慧識圖匯入</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              • 點選「AI 識圖匯入」上傳課表或班表截圖，系統自動利用 Gemini 多模態 AI 萃取星期、開始時間與活動地點。<br>
+              • 可選擇「提前 3 分鐘 / 5 分鐘 / 10 分鐘」提醒，系統自動將 13:00 上班轉換為 12:57 響鈴。<br>
+              • 自由勾選項目後，一鍵批次建立並歸類至指定標籤。
+            </p>
+          </div>
+
+          <!-- Feature 6: Android Background Lock Screen Wake -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/90 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-emerald-300">
+              <span class="w-5 h-5 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[11px]">6</span>
+              <span>Android 原生喚醒與貪睡功能</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              • 串接 Android AlarmManager，即便 App 完全滑掉關閉或手機黑屏休眠，時間一到依然強制點亮螢幕響鈴。<br>
+              • 支援稍後提醒（貪睡 5/10/15 分鐘），鎖定期間具備獨立倒數看板，可在「設定」中點擊測試 10 秒鎖屏喚醒！
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="border-t border-slate-800 pt-3 flex justify-end">
+          <button type="button" onclick="closeHowToUseModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-bold text-xs shadow-md shadow-sky-500/25 active:scale-95 transition">
+            我知道了，開始使用
+          </button>
+        </div>
+
       </div>
     </div>
 
@@ -2472,6 +2609,17 @@
 
     function closeApiKeyModal() {
       const modal = document.getElementById('apiKeyModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    /* Feature Guide / How-To-Use Modal Controls */
+    function openHowToUseModal() {
+      const modal = document.getElementById('howToUseModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeHowToUseModal() {
+      const modal = document.getElementById('howToUseModal');
       if (modal) modal.classList.add('hidden');
     }
 
