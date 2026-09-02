@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # 支援手動點擊按鈕觸發打包
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,27 +16,26 @@ jobs:
       - name: 設定 Node.js 環境
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: 設定 Java 17 (JDK)
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: 設定 Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 設定 Gradle 快取與環境
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: 初始化 Capacitor 與設定原生鬧鐘權限
+      - name: 初始化 Capacitor 並配置 Android 原生鬧鐘
         run: |
           mkdir -p www
           cp index.html www/
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/local-notifications
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
           npx cap init "星空鬧鐘" com.staralarm.app --web-dir www
           
-          # 將 App 指向 GitHub Pages 達成連網自動更新（請確保換成您的 Pages 網址）
-          # 若無網路時會自動讀取本地 www/index.html 備援
+          # 將 App 指向 GitHub Pages（若有斷網時自動讀取本地備援）
           cat << 'EOF' > capacitor.config.json
           {
             "appId": "com.staralarm.app",
@@ -51,7 +50,7 @@ jobs:
           # 建立 Android 原生專案
           npx cap add android
 
-          # 寫入 Android 原生精確鬧鐘與全螢幕通知必備權限
+          # 注入 Android 系統精確鬧鐘與喚醒權限
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />' $MANIFEST
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />' $MANIFEST
@@ -61,13 +60,17 @@ jobs:
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' $MANIFEST
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />' $MANIFEST
 
-      - name: 編譯 Android APK
+      - name: 自動接受 Android SDK 授權
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: 編譯 Android Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
-      - name: 上傳打包好的 APK 檔案
+      - name: 上傳打包好的 APK 成品
         uses: actions/upload-artifact@v4
         with:
           name: StarAlarm-Android-Debug
